@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Трекер телефона</title>
+    <style>
+        /* Установка размеров карты */
+        #map {
+            width: 80%; /* Ширина карты */
+            height: 400px; /* Высота карты */
+            margin: 20px auto; /* Центрирование карты по горизонтали */
+            border: 1px solid #ccc; /* Граница карты */
+            border-radius: 5px; /* Закругление углов карты */
+        }
+        /* Установка отступов для элементов */
+        body {
+            padding: 20px;
+        }
+
+        /* Медиазапрос для адаптивности страницы на мобильных устройствах */
+        @media only screen and (max-width: 600px) {
+            #map {
+                height: 200px; /* Уменьшенная высота карты на мобильных устройствах */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <form>
+        <label for="username">Введите ваше имя:</label>
+        <input type="text" id="username" name="username">
+        <button type="button" onclick="updateMarkerLabel()">Сохранить имя</button>
+    </form>
+
+    <h1>Трекер телефона</h1>
+
+    <p id="demo"></p>
+
+    <h2>Информация о батарее:</h2>
+    <p id="battery"></p>
+
+    <h2>Погода:</h2>
+    <p id="weather"></p>
+
+    <!-- Добавляем контейнер для карты -->
+    <div id="map"></div>
+
+    <link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+/>
+<script
+  src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+></script>
+
+<script>
+    var map = L.map('map').setView([51.505, -0.09], 13); // Начальные координаты карты
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+    }).addTo(map);
+
+    var marker;
+    var pathCoordinates = []; // Сохранение координат для построения пути
+
+    function onMapClick(e) {
+        if (!marker) {
+            marker = L.marker(e.latlng).addTo(map);
+        } else {
+            marker.setLatLng(e.latlng);
+        }
+    }
+
+    map.on('click', onMapClick);
+
+    function updateMarkerLabel() {
+        var username = document.getElementById('username').value;
+
+        if (marker && username) {
+            marker.bindPopup(username).openPopup();
+        }
+    }
+
+    function showPosition(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+
+        // Получаем данные о погоде по координатам
+        fetch('https://api.openweathermap.org/data/3.0/onecall?lat=' + latitude + '&lon=' + longitude + '&appid=6099514593abfa49070b73e3b9d28911')
+        .then(response => response.json())
+        .then(data => {
+            var temperature = data.current.temp; // Значение температуры, предположим, "266.03"
+            var intTemperatureCelsius = Math.round(parseInt(temperature) - 273.15);
+            var weatherInfo = 'Температура: ' + intTemperatureCelsius + '°C, ' + data.current.weather[0].main
+            document.getElementById("weather").innerHTML = weatherInfo;
+        })
+        .catch(error => {
+            console.log('Ошибка получения данных о погоде:', error);
+            document.getElementById("weather").innerHTML = 'Ошибка получения данных о погоде';
+        });
+
+        // Добавляем текущие координаты в путь
+        pathCoordinates.push([latitude, longitude]);
+
+        // Отображаем путь на карте
+        if (pathCoordinates.length > 1) {
+            var polyline = L.polyline(pathCoordinates, { color: 'red' }).addTo(map);
+        }
+
+        // Устанавливаем центр карты в текущее местоположение пользователя и увеличиваем масштаб
+        map.setView([latitude, longitude], 13);
+
+        // Добавляем маркер на карту с текущим местоположением пользователя
+        if (!marker) {
+            marker = L.marker([latitude, longitude]).addTo(map).bindPopup("Вы здесь").openPopup();
+        } else {
+            marker.setLatLng([latitude, longitude]).bindPopup("Вы здесь").openPopup();
+        }
+
+        // Отображаем координаты пользователя
+        document.getElementById("demo").innerHTML = "Широта: " + latitude + "<br>Долгота: " + longitude;
+    }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            // Используем watchPosition для непрерывного отслеживания изменений геопозиции
+            navigator.geolocation.watchPosition(showPosition);
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+        
+    navigator.getBattery().then(function(battery) {
+        document.getElementById("battery").innerHTML = "Уровень заряда: " + battery.level * 100 + "%";
+    });
+
+    getLocation();
+</script>
+</body>
+</html>
